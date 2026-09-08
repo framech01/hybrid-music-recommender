@@ -63,18 +63,24 @@ def main():
 
     # Generate Top-N recommendations per user
     records = []
-    for u in tqdm(range(n_users), desc=f"Top-{TOP_K} per user"):
-        user_row = user_item_conf[u]
-        rec_items, rec_scores = model.recommend(u, user_row, N=TOP_K)
-        user_id = user_uniques[u]
-        for rank, (item_idx, score) in enumerate(zip(rec_items, rec_scores), start=1):
-            track_id = item_uniques[item_idx]
-            records.append({
-                "user_id": user_id,
-                "track_id": track_id,
-                "rank_in_user": rank,
-                "score": float(score)
-            })
+    batch_size = 1_024
+    for start in tqdm(range(0, n_users, batch_size), desc=f"Top-{TOP_K} batches"):
+        stop = min(start + batch_size, n_users)
+        user_indices = np.arange(start, stop)
+        rec_items, rec_scores = model.recommend(
+            user_indices, user_item_conf[start:stop], N=TOP_K, filter_already_liked_items=True
+        )
+        for offset, u in enumerate(user_indices):
+            user_id = user_uniques[u]
+            for rank, (item_idx, score) in enumerate(
+                zip(rec_items[offset], rec_scores[offset]), start=1
+            ):
+                records.append({
+                    "user_id": user_id,
+                    "track_id": item_uniques[item_idx],
+                    "rank_in_user": rank,
+                    "score": float(score)
+                })
 
     # Save results
     df_topk = pd.DataFrame(records)

@@ -234,7 +234,8 @@ def main():
     df_db = sample_n(df_db_src, TARGET_M, f"DB-LATEST Nov {latest_year}")
     df_test = sample_n(df_test_src, TARGET_M, f"TEST Dec {latest_year}")
 
-    # Save split datasets
+    # Save raw split datasets for reproducibility; continue in memory to avoid
+    # three unnecessary CSV read passes.
     train_path = os.path.join(OUT_DIR, f"train_{latest_year}_01~10_sample.csv")
     db_path = os.path.join(OUT_DIR, f"db_{latest_year}_11_sample.csv")
     test_path = os.path.join(OUT_DIR, f"test_{latest_year}_12_sample.csv")
@@ -242,10 +243,7 @@ def main():
     write_csv(df_db, db_path)
     write_csv(df_test, test_path)
 
-    df_train = read_csv_robust(train_path)
-    df_db = read_csv_robust(db_path)
-    df_test = read_csv_robust(test_path)
-    print(f"[RELOAD] train={df_train.shape}, db_latest={df_db.shape}, test={df_test.shape}")
+    print(f"[SPLIT] train={df_train.shape}, db_latest={df_db.shape}, test={df_test.shape}")
 
     meta = fit_meta_on_train(df_train)
     train_clean = apply_meta(df_train, meta)

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
 
 # ==============================================
@@ -33,21 +33,22 @@ def main():
     n = len(df)
     print(f"[LOAD] {n:,} tracks loaded")
 
-    # cosine similarity
-    print("[SIM] computing cosine similarity ...")
-    sim = cosine_similarity(X, X)
-    print(f"[SIM] done. shape={sim.shape}")
+    # Brute-force cosine neighbors are evaluated in bounded batches by sklearn.
+    # This avoids materializing the O(n^2) similarity matrix.
+    print("[SIM] fitting nearest-neighbor index ...")
+    model = NearestNeighbors(metric="cosine", algorithm="brute", n_jobs=-1)
+    model.fit(X)
+    distances, indices = model.kneighbors(X, n_neighbors=min(TOP_K + 1, n))
 
-    # Extract top-10 per track 
     records = []
-    for i in tqdm(range(n), desc=f"Top-{TOP_K} per track"):
-        sims = sim[i]
-        top_idx = np.argsort(sims)[::-1]
+    for i, (row_distances, row_indices) in enumerate(
+        tqdm(zip(distances, indices), total=n, desc=f"Top-{TOP_K} per track")
+    ):
         rank = 0
-        for j in top_idx:
+        for distance, j in zip(row_distances, row_indices):
             if ids[i] == ids[j]:
-                continue  
-            score = sims[j]
+                continue
+            score = 1.0 - distance
             if not np.isfinite(score) or score <= 0:
                 continue
             rank += 1
